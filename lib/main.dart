@@ -6,6 +6,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_vibrate/flutter_vibrate.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:async';
 
 // Firebase configuration
 final FirebaseOptions firebaseOptions = FirebaseOptions(
@@ -71,15 +74,59 @@ class _CrashAlertScreenState extends State<CrashAlertScreen> with SingleTickerPr
   AudioPlayer _audioPlayer = AudioPlayer();
   bool isPlayingSound = false;
 
+  Map<String, dynamic> sensorData = {
+    'temp': '0',
+    'humidity': '0',
+    'timestamp': 'N/A',
+    'display_message': 'No data',
+    'detail': 'No details available'
+  };
+  Timer? _pollingTimer;
+
+
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: Duration(seconds: 1),
+      duration: Duration(seconds:1),
     )..repeat(reverse: true);
-
+    _startPolling();
     _setupFirebaseMessaging();
+  }
+  void _startPolling() {
+    _pollingTimer = Timer.periodic(Duration(seconds: 5), (timer) {
+      _fetchSensorData();
+    });
+    _fetchSensorData();
+  }
+  Future<void> _fetchSensorData() async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://139.59.18.184:8001/iot_project/senddht/'),
+      );
+
+      print(response.statusCode);
+      print(response.body);
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        print("fgdfdhdgd");
+        print(response.body);
+
+        setState(() {
+          sensorData = {
+            'temp': responseData['data']['temp']?.toString() ?? 'N/A',
+            'humidity': responseData['data']['humidity']?.toString() ?? 'N/A',
+            'timestamp': responseData['data']['timestamp'] ?? 'N/A',
+            'display_message': responseData['display_message'] ?? 'No message',
+            'speed': responseData['data']['speed'] ?? 'No details'
+          };
+        });
+
+      }
+    } catch (e) {
+      print('Error fetching sensor data: $e');
+    }
   }
 
   Future<void> _setupFirebaseMessaging() async {
@@ -128,7 +175,7 @@ class _CrashAlertScreenState extends State<CrashAlertScreen> with SingleTickerPr
 
     if (!isPlayingSound) {
       _audioPlayer.setReleaseMode(ReleaseMode.loop);
-      await _audioPlayer.play(AssetSource('assets/sound/alert.mp3')); // Add an alert.mp3 sound file
+      await _audioPlayer.play(AssetSource('/sound/alert.mp3')); // Add an alert.mp3 sound file
       isPlayingSound = true;
     }
   }
@@ -148,6 +195,7 @@ class _CrashAlertScreenState extends State<CrashAlertScreen> with SingleTickerPr
 
   @override
   void dispose() {
+    _pollingTimer?.cancel();
     _animationController.dispose();
     _audioPlayer.dispose();
     super.dispose();
@@ -234,6 +282,89 @@ class _CrashAlertScreenState extends State<CrashAlertScreen> with SingleTickerPr
         );
       }
     }
+  }
+  Widget _buildSensorDataCard() {
+    // Format the timestamp for better readability
+    String formattedTimestamp = sensorData['timestamp'] != 'N/A'
+        ? DateTime.parse(sensorData['timestamp']).toLocal().toString().split('.')[0]
+        : 'N/A';
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.15),
+            blurRadius: 15,
+            spreadRadius: 2,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Container(
+        padding: EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.sensors, color: Colors.blue[700], size: 24),
+                SizedBox(width: 12),
+                Text(
+                  "Sensor Data",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[800],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+            _buildSensorRow("Temperature", "${sensorData['temp']}°C", Icons.thermostat),
+            _buildSensorRow("Humidity", "${sensorData['humidity']}%", Icons.water_drop),
+            _buildSensorRow("Status", sensorData['display_message'], Icons.info_outline),
+            _buildSensorRow("Speed", "${sensorData['speed']} km/h", Icons.speed),
+            _buildSensorRow("Last Updated", formattedTimestamp, Icons.access_time),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSensorRow(String label, String value, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.grey[600]),
+          SizedBox(width: 12),
+          Text(
+            "$label:",
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey[700],
+            ),
+          ),
+          Spacer(),
+          Flexible(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[800],
+              ),
+              textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -444,7 +575,7 @@ class _CrashAlertScreenState extends State<CrashAlertScreen> with SingleTickerPr
                   ),
                 ),
               ),
-
+              _buildSensorDataCard(),
               // Emergency Contacts Section
               Container(
                 margin: EdgeInsets.all(16),

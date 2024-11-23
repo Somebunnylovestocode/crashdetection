@@ -42,6 +42,8 @@ dependencies:
   flutter_vibrate: ^1.0.0
   audioplayers: ^6.1.0
   vibration: ^1.8.4
+  http: ^1.2.2
+
 
 dev_dependencies:
   flutter_test:
