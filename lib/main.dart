@@ -12,7 +12,7 @@ import 'dart:async';
 
 // Firebase configuration
 final FirebaseOptions firebaseOptions = FirebaseOptions(
-  apiKey: 'AIzaSyAUSju9njfcVInJy_QHICNFmu87DvB-fuw',
+  apiKey: 'NOPE NOT GIVING THIS',
   appId: '1:1056190182504:android:2cf36bfd0b473f7465b7dd',
   messagingSenderId: '1056190182504',
   projectId: 'iot-crashtime',
